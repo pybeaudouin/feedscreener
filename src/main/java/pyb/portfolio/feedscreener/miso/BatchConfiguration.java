@@ -112,6 +112,7 @@ public class BatchConfiguration {
 				.<LMPData, List<MisoMarketPrice>>chunk(10)
 				.faultTolerant()
 				.retryLimit(5)
+				.retry(Exception.class)
 				.reader(reader())
 				.processor(processor())
 				.writer(writer())
