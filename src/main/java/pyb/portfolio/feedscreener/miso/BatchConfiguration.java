@@ -5,11 +5,13 @@ import java.util.List;
 import javax.sql.DataSource;
 
 import org.springframework.batch.core.Job;
+import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
+import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
@@ -18,10 +20,19 @@ import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.annotation.Scheduled;
 
 @Configuration
 @EnableBatchProcessing
+@EnableScheduling
 public class BatchConfiguration {
+
+	@Autowired
+	public DataSource dataSource;
+
+	@Autowired
+	private LMPDataItemReader lmpDataItemReader;
 
 	@Autowired
 	public JobBuilderFactory jobBuilderFactory;
@@ -30,10 +41,10 @@ public class BatchConfiguration {
 	public StepBuilderFactory stepBuilderFactory;
 
 	@Autowired
-	public DataSource dataSource;
+	JobLauncher jobLauncher;
 
 	@Autowired
-	private LMPDataItemReader lmpDataItemReader;
+	JobCompletionNotificationListener listener;
 
 	// tag::readerwriterprocessor[]
 	@Bean
@@ -79,13 +90,15 @@ public class BatchConfiguration {
 	}
 	// end::readerwriterprocessor[]
 
-	// tag::jobstep[]
-	@Bean
-	public Job importUserJob(JobCompletionNotificationListener listener) {
-		return jobBuilderFactory.get("importUserJob").incrementer(new RunIdIncrementer()).listener(listener)
-				.flow(step1()).end().build();
+	// FIXME: test Daylight Saving Time sensitivity
+	@Scheduled(cron = "0 0/5 * * * *")
+	public void runJob() throws Exception {
+		final Job importLMPDataJob = jobBuilderFactory.get("importLMPDataJob").incrementer(new RunIdIncrementer())
+				.listener(listener).flow(step1()).end().build();
+		jobLauncher.run(importLMPDataJob, new JobParameters());
 	}
 
+	// tag::jobstep[]
 	@Bean
 	public Step step1() {
 		return stepBuilderFactory.get("step1").<LMPData, List<MisoMarketPrice>>chunk(10).reader(reader())
