@@ -29,22 +29,22 @@ import org.springframework.scheduling.annotation.Scheduled;
 public class BatchConfiguration {
 
 	@Autowired
-	public DataSource dataSource;
+	private DataSource dataSource;
 
 	@Autowired
 	private LMPDataItemReader lmpDataItemReader;
 
 	@Autowired
-	public JobBuilderFactory jobBuilderFactory;
+	private JobBuilderFactory jobBuilderFactory;
 
 	@Autowired
-	public StepBuilderFactory stepBuilderFactory;
+	private StepBuilderFactory stepBuilderFactory;
 
 	@Autowired
-	JobLauncher jobLauncher;
+	private JobLauncher jobLauncher;
 
 	@Autowired
-	JobCompletionNotificationListener listener;
+	private JobCompletionNotificationListener listener;
 
 	// tag::readerwriterprocessor[]
 	@Bean
@@ -93,16 +93,28 @@ public class BatchConfiguration {
 	// FIXME: test Daylight Saving Time sensitivity
 	@Scheduled(cron = "0 0/5 * * * *")
 	public void runJob() throws Exception {
-		final Job importLMPDataJob = jobBuilderFactory.get("importLMPDataJob").incrementer(new RunIdIncrementer())
-				.listener(listener).flow(step1()).end().build();
+		//@formatter:off
+		final Job importLMPDataJob = jobBuilderFactory.get("importLMPDataJob")
+				.incrementer(new RunIdIncrementer())
+				.listener(listener)
+				.flow(step1())
+				.end()
+				.build();
+		//@formatter:on
 		jobLauncher.run(importLMPDataJob, new JobParameters());
 	}
 
 	// tag::jobstep[]
 	@Bean
 	public Step step1() {
-		return stepBuilderFactory.get("step1").<LMPData, List<MisoMarketPrice>>chunk(10).reader(reader())
-				.processor(processor()).writer(writer()).build();
+		//@formatter:off
+		return stepBuilderFactory.get("step1")
+				.<LMPData, List<MisoMarketPrice>>chunk(10)
+				.reader(reader())
+				.processor(processor())
+				.writer(writer())
+				.build();
+		//@formatter:on
 	}
 	// end::jobstep[]
 }

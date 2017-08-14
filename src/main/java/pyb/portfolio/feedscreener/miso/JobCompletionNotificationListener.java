@@ -25,24 +25,26 @@ public class JobCompletionNotificationListener extends JobExecutionListenerSuppo
 	@Override
 	public void afterJob(JobExecution jobExecution) {
 		if (jobExecution.getStatus() == BatchStatus.COMPLETED) {
-			log.info("!!! JOB FINISHED! Time to verify the results");
+			log.info("LMP Data import completed.");
+			if (!log.isDebugEnabled()) {
+				return;
+			}
 			final List<MisoMarketPrice> results = jdbcTemplate.query(
-					"SELECT originaldatetime, hubname, lmp, loss, congestion FROM miso_market_price_five_minutes",
-					//@formatter:off
-					(RowMapper<MisoMarketPrice>) (rs, row) -> new MisoMarketPrice(
-																rs.getTimestamp(1),
-																rs.getString(2),
-																rs.getBigDecimal("lmp"),
-																rs.getBigDecimal("loss"),
-																rs.getBigDecimal("congestion")
-															)
+				"SELECT originaldatetime, hubname, lmp, loss, congestion FROM miso_market_price_five_minutes",
+				//@formatter:off
+				(RowMapper<MisoMarketPrice>) (rs, row) -> new MisoMarketPrice(
+															rs.getTimestamp(1),
+															rs.getString(2),
+															rs.getBigDecimal("lmp"),
+															rs.getBigDecimal("loss"),
+															rs.getBigDecimal("congestion")
+														)
+				//@formatter:on
 			);
-			//@formatter:on
 
 			for (final MisoMarketPrice mmp : results) {
 				log.info("Found <" + mmp + "> in the database.");
 			}
-
 		}
 	}
 }
