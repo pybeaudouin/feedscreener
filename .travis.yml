@@ -1,0 +1,4 @@
+language: java
+env:
+  global:
+    - H2_DB_LOCATION=./h2-database-file
