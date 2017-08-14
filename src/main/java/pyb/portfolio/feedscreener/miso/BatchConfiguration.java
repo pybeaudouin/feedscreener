@@ -116,6 +116,8 @@ public class BatchConfiguration {
 				.reader(reader())
 				.processor(processor())
 				.writer(writer())
+				// set to true because step1 is repeated indefinitely
+				.allowStartIfComplete(true)
 				.build();
 		//@formatter:on
 	}
