@@ -110,6 +110,8 @@ public class BatchConfiguration {
 		//@formatter:off
 		return stepBuilderFactory.get("step1")
 				.<LMPData, List<MisoMarketPrice>>chunk(10)
+				.faultTolerant()
+				.retryLimit(5)
 				.reader(reader())
 				.processor(processor())
 				.writer(writer())
