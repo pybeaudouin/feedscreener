@@ -91,7 +91,7 @@ public class BatchConfiguration {
 	// end::readerwriterprocessor[]
 
 	// FIXME: test Daylight Saving Time sensitivity
-	@Scheduled(cron = "0/5 * * * * *")
+	@Scheduled(cron = "* 0/5 * * * *")
 	public void runJob() throws Exception {
 		//@formatter:off
 		final Job importLMPDataJob = jobBuilderFactory.get("importLMPDataJob")
