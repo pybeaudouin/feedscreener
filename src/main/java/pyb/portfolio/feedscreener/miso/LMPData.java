@@ -20,6 +20,7 @@ import javax.xml.bind.annotation.XmlType;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 import javax.xml.datatype.XMLGregorianCalendar;
 
+import lombok.ToString;
 import pyb.portfolio.jaxb.adapter.TimestampAdapter;
 
 /**
@@ -61,6 +62,7 @@ import pyb.portfolio.jaxb.adapter.TimestampAdapter;
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "", propOrder = { "exAnteLMP" })
 @XmlRootElement(name = "LMPData")
+@ToString
 public class LMPData {
 
 	@XmlElement(name = "ExAnteLMP", required = true)
@@ -113,6 +115,7 @@ public class LMPData {
 	 */
 	@XmlAccessorType(XmlAccessType.FIELD)
 	@XmlType(name = "", propOrder = { "hub" })
+	@ToString
 	public static class ExAnteLMP {
 
 		@XmlElement(name = "Hub", required = true)
@@ -175,6 +178,7 @@ public class LMPData {
 		 */
 		@XmlAccessorType(XmlAccessType.FIELD)
 		@XmlType(name = "")
+		@ToString
 		public static class Hub {
 
 			@XmlAttribute(name = "LMP")
