@@ -1,10 +1,14 @@
 package pyb.portfolio.feedscreener.miso;
 
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.sql.DataSource;
 
 import org.springframework.batch.core.Job;
+import org.springframework.batch.core.JobParameter;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
@@ -13,17 +17,12 @@ import org.springframework.batch.core.configuration.annotation.StepBuilderFactor
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
-import org.springframework.batch.core.step.skip.SkipLimitExceededException;
-import org.springframework.batch.core.step.skip.SkipPolicy;
-import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.dao.DuplicateKeyException;
-import org.springframework.retry.RetryPolicy;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 
@@ -39,9 +38,6 @@ public class BatchConfiguration {
 	private DataSource dataSource;
 
 	@Autowired
-	private LMPDataItemReader lmpDataItemReader;
-
-	@Autowired
 	private JobBuilderFactory jobBuilderFactory;
 
 	@Autowired
@@ -54,11 +50,6 @@ public class BatchConfiguration {
 	private JobCompletionNotificationListener listener;
 
 	// tag::readerwriterprocessor[]
-	@Bean
-	public ItemReader<LMPData> reader() {
-		return lmpDataItemReader;
-	}
-
 	@Bean
 	public LMPDataItemProcessor processor() {
 		return new LMPDataItemProcessor();
@@ -86,7 +77,8 @@ public class BatchConfiguration {
 		final JdbcBatchItemWriter<MisoMarketPrice> itemWriter = new JdbcBatchItemWriter<>();
 		itemWriter.setItemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<MisoMarketPrice>());
 
-		itemWriter.setSql("INSERT INTO miso_market_price_five_minutes(originaldatetime, hubname, lmp, loss, congestion)"
+		// MERGE = UPSERT. http://h2database.com/html/grammar.html#merge
+		itemWriter.setSql("MERGE INTO miso_market_price_five_minutes(originaldatetime, hubname, lmp, loss, congestion)"
 				+ " VALUES(:originaldatetime, :hubname, :lmp, :loss, :congestion)");
 		itemWriter.setDataSource(dataSource);
 		return itemWriter;
@@ -99,7 +91,7 @@ public class BatchConfiguration {
 	// end::readerwriterprocessor[]
 
 	// FIXME: test Daylight Saving Time sensitivity
-	@Scheduled(cron = "0 0/5 * * * *")
+	@Scheduled(cron = "0/5 * * * * *")
 	public void runJob() throws Exception {
 		//@formatter:off
 		final Job importLMPDataJob = jobBuilderFactory.get("importLMPDataJob")
@@ -109,28 +101,21 @@ public class BatchConfiguration {
 				.end()
 				.build();
 		//@formatter:on
-		jobLauncher.run(importLMPDataJob, new JobParameters());
+
+		final Map<String, JobParameter> jobParams = new HashMap<>(1);
+		jobParams.put("startDate", new JobParameter(new Date(), true));
+		jobLauncher.run(importLMPDataJob, new JobParameters(jobParams));
 	}
 
 	// tag::jobstep[]
-	@Bean
+	// don't use @Bean as this keeps the same step with the same reader
 	public Step step1() {
+		log.info("Building step1...");
 		//@formatter:off
 		return stepBuilderFactory.get("step1")
 				.<LMPData, List<MisoMarketPrice>>chunk(10)
-				.faultTolerant()
-				// quick and dirty way to ignore errors when the website hasn't refreshed
-				.skipPolicy(new SkipPolicy() {
-					
-					@Override
-					public boolean shouldSkip(Throwable t, int skipCount) throws SkipLimitExceededException {
-						if(t instanceof DuplicateKeyException) {
-							return true;
-						}
-						return false;
-					}
-				})
-				.reader(reader())
+				// the reader blows itself after one usage so we build a new one at every step
+				.reader(new LMPDataItemReader())
 				.processor(processor())
 				.writer(writer())
 				.allowStartIfComplete(true)
