@@ -45,6 +45,8 @@ public class JobCompletionNotificationListener extends JobExecutionListenerSuppo
 			for (final MisoMarketPrice mmp : results) {
 				log.info("Found <" + mmp + "> in the database.");
 			}
+		} else {
+			log.info("Job terminated, status: {}", jobExecution.getStatus());
 		}
 	}
 }
