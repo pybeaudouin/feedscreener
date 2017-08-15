@@ -13,6 +13,8 @@ import org.springframework.batch.core.configuration.annotation.StepBuilderFactor
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
+import org.springframework.batch.core.step.skip.SkipLimitExceededException;
+import org.springframework.batch.core.step.skip.SkipPolicy;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider;
@@ -20,12 +22,17 @@ import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.retry.RetryPolicy;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Configuration
 @EnableBatchProcessing
 @EnableScheduling
+@Slf4j
 public class BatchConfiguration {
 
 	@Autowired
@@ -68,6 +75,7 @@ public class BatchConfiguration {
 		@Override
 		public void write(List<? extends List<T>> items) throws Exception {
 			for (final List<T> subList : items) {
+				log.debug("Writing item {}", subList);
 				wrapped.write(subList);
 			}
 		}
@@ -111,12 +119,20 @@ public class BatchConfiguration {
 		return stepBuilderFactory.get("step1")
 				.<LMPData, List<MisoMarketPrice>>chunk(10)
 				.faultTolerant()
-				.retryLimit(5)
-				.retry(Exception.class)
+				// quick and dirty way to ignore errors when the website hasn't refreshed
+				.skipPolicy(new SkipPolicy() {
+					
+					@Override
+					public boolean shouldSkip(Throwable t, int skipCount) throws SkipLimitExceededException {
+						if(t instanceof DuplicateKeyException) {
+							return true;
+						}
+						return false;
+					}
+				})
 				.reader(reader())
 				.processor(processor())
 				.writer(writer())
-				// set to true because step1 is repeated indefinitely
 				.allowStartIfComplete(true)
 				.build();
 		//@formatter:on

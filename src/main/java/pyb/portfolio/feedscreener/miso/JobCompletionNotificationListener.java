@@ -30,7 +30,7 @@ public class JobCompletionNotificationListener extends JobExecutionListenerSuppo
 				return;
 			}
 			final List<MisoMarketPrice> results = jdbcTemplate.query(
-				"SELECT originaldatetime, hubname, lmp, loss, congestion FROM miso_market_price_five_minutes",
+				"SELECT originaldatetime, hubname, lmp, loss, congestion FROM miso_market_price_five_minutes ORDER BY originaldatetime",
 				//@formatter:off
 				(RowMapper<MisoMarketPrice>) (rs, row) -> new MisoMarketPrice(
 															rs.getTimestamp(1),
